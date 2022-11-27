@@ -27,6 +27,18 @@
               </v-layout>
             </v-container>
           </v-card-text>
+
+          <!-- 이미지 업로드 -->
+<v-file-input class="input" type="file" counter show-size label="이미지 제출(여러개 가능)"
+              outlined dense multiple prepend-icon="mdi-camera" style="width: 400px; margin-left: 100px;"
+              @change="onImageChange"/>
+<v-img v-for="(item,i) in uploadimageurl" :key="i" :src="item.url"
+            contain height="150px" width="200px" style="border: 2px solid black; margin-left:100px;"/>
+
+            <!-- 이미지 불러오기 
+            <v-img v-for="(item, i) in imagelist" :key="i" :src="require(`../../../back/uploads/${item}`)"
+       contain height="150px" width="200px" style="border: 2px solid black; margin-left:100px;"/>
+-->
           <v-card-actions>
             <v-spacer></v-spacer>
             <v-btn color="blue darken-1" text @click="btnClick($event)">취소</v-btn>
@@ -189,8 +201,67 @@ export default {
       this.coffeeInfo.register_date = null;
     }
 
-  }
+  },
+// 이미지 method
+onImageChange(file) {	// v-file-input 변경시
+      if (!file) {
+        return;
+      }
+      const formData = new FormData();	// 파일을 전송할때는 FormData 형식으로 전송
+      this.uploadimageurl = [];		// uploadimageurl은 미리보기용으로 사용
+      file.forEach((item) => {
+        formData.append('filelist', item)	// formData의 key: 'filelist', value: 이미지
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.uploadimageurl.push({url: e.target.result});
+          // e.target.result를 통해 이미지 url을 가져와서 uploadimageurl에 저장
+        };
+        reader.readAsDataURL(item);
+      });
+      axios({
+        url: "http://localhost:8000/image/imagesave/",	// 이미지 저장을 위해 back서버와 통신
+        method: "POST",
+        headers: {'Image-Type': 'multipart/form-data'},	// 이걸 써줘야 formdata 형식 전송가능
+        data: formData,
+      }).then(res => {
+        console.log(res.data.message);
+        this.imagecnt = file.length;	// 이미지 개수 저장
+      }).catch(err => {
+        alert(err);
+      });
+    },
+
+    // 이미지 불러오기
+    // data속성에서 추가되는 변수들
+imagelist: [],		// 불러온 이미지들의 url을 저장하는 객체
+imagecnt: 0,		// 불러올 이미지 개수 (db에서 받아옴)
+// 이미지 수정, 삭제 기능은 없어서 처음에 불러오는 부분만 수정
+mounted() {
+    axios({
+      url: "http://localhost:8000/image/image/",
+      method: "POST",
+      data: {
+        id: this.$route.query.id
+      },
+    }).then(res => {
+      this.writer = res.data.writer;
+      this.title = res.data.title;
+      this.createdAt = res.data.createdAt.split('T')[0] ;
+      this.updatedAt = res.data.updatedAt.split('T')[0];
+      this.text = res.data.text;
+      this.imagecnt = res.data.imagecnt;	// db에서 새로운 field인 imagecnt 값도 받아옴
+      for(var i = 1; i <= res.data.imagecnt; i++){
+        this.imagelist.push(this.$route.query.id + '-' + i + '.png');
+	// 이미지를 저장할 때, '글id - 1.png', '글id - 2.png', ... 이런식으로 저장할 것임
+      }
+    }).catch(err => {
+      alert(err);
+    });
+},
 }
+
+
+
 </script>
 <style scoped>
   div{
